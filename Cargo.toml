@@ -25,7 +25,6 @@ base64 = "0.22"
 dashmap = "6.1"
 futures = "0.3.31"
 lazy_static = "1.5"
-tonic-prost-build = "0.14"
 
 [build-dependencies]
 tonic-prost-build = "0.14"
