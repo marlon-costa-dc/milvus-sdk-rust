@@ -220,9 +220,7 @@ fn print_search_results(res: &Vec<SearchResult<'_>>) {
             .zip(age_column.iter())
             .zip(picture_column.chunks(DIM as usize))
             .zip(score_column.iter())
-            .map(|(((id, age), picture), score)| {
-                (*id, *age, picture.to_vec(), *score)
-            })
+            .map(|(((id, age), picture), score)| (*id, *age, picture.to_vec(), *score))
         {
             println!(
                 "id: {} age: {} picture: {:?} score: {}",
@@ -247,9 +245,7 @@ fn print_get_results(res: &[FieldColumn]) {
         .zip(ages.iter())
         .zip(deposits.iter())
         .zip(pictures.chunks(DIM as usize))
-        .map(|(((id, age), deposit), picture)| {
-            (*id, *age, *deposit, picture.to_vec())
-        })
+        .map(|(((id, age), deposit), picture)| (*id, *age, *deposit, picture.to_vec()))
     {
         println!(
             "id: {} age: {} deposit: {} picture: {:?}",

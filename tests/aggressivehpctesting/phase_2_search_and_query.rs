@@ -178,8 +178,7 @@ async fn high_volume_search_and_query_under_load() -> Result<()> {
                 // Insert a small batch
                 let start_id = INITIAL_ENTITY_COUNT + (i as i64 * 1_000_000) + counter;
                 let ids = vec![start_id];
-                let vectors: Vec<f32> =
-                    (0..DEFAULT_DIM).map(|_| rand::rng().random()).collect();
+                let vectors: Vec<f32> = (0..DEFAULT_DIM).map(|_| rand::rng().random()).collect();
                 let varchars = vec![format!("churn_{}", start_id)];
                 let fields = vec![
                     FieldColumn::new(&id_schema_clone, ids.clone()),
@@ -200,10 +199,7 @@ async fn high_volume_search_and_query_under_load() -> Result<()> {
                         Vec::new()
                     } else {
                         let mut rng = rand::rng();
-                        let sample: Vec<i64> = guard
-                            .sample(&mut rng, 1)
-                            .cloned()
-                            .collect();
+                        let sample: Vec<i64> = guard.sample(&mut rng, 1).cloned().collect();
                         // Remove the selected IDs from the shared list to prevent double deletion
                         for &id in &sample {
                             if let Some(pos) = guard.iter().position(|&x| x == id) {

@@ -3,11 +3,7 @@ mod common;
 
 use common::*;
 use milvus::{
-    client::*,
-    data::FieldColumn,
-    error::Result,
-    query::SearchOptions,
-    schema::CollectionSchema,
+    client::*, data::FieldColumn, error::Result, query::SearchOptions, schema::CollectionSchema,
     value::Value,
 };
 use std::borrow::Cow;

@@ -11,7 +11,7 @@ use milvus::{
     value::ValueVec,
 };
 use std::{collections::HashMap, time::Duration};
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 
 const SOAK_TEST_DURATION_MINS: u64 = 60;
 const SOAK_COLLECTION_NAME: &str = "soak_test_collection";
@@ -56,9 +56,18 @@ async fn soak_test_for_stability_and_memory_leaks() -> Result<()> {
             );
         }
 
-        // Clean up collection even if it failed, to avoid leaving residue
-        if client.has_collection(&collection_name).await? {
-            client.drop_collection(&collection_name).await?;
+        // Clean up collection even if it failed (timeout to avoid hang)
+        if let Ok(Ok(true)) = timeout(
+            Duration::from_secs(10),
+            client.has_collection(&collection_name),
+        )
+        .await
+        {
+            let _ = timeout(
+                Duration::from_secs(15),
+                client.drop_collection(&collection_name),
+            )
+            .await;
             println!("Cleaned up collection '{}'", collection_name);
         }
 
@@ -78,7 +87,20 @@ async fn run_full_sdk_cycle(
     collection_name: &str,
     partition_name: &str,
 ) -> Result<()> {
-    // 1. Create Collection & Partition
+    // 1. Create Collection & Partition (drop if exists so cycle is idempotent; timeout to avoid hang)
+    let has = timeout(
+        Duration::from_secs(10),
+        client.has_collection(collection_name),
+    )
+    .await
+    .map_err(|_| milvus::error::Error::Unexpected("has_collection timed out".into()))??;
+    if has {
+        let _ = timeout(
+            Duration::from_secs(15),
+            client.drop_collection(collection_name),
+        )
+        .await;
+    }
     let id_schema = FieldSchema::new_primary_int64("id", "", true);
     let vec_schema = FieldSchema::new_float_vector(DEFAULT_VEC_FIELD, "", DEFAULT_DIM);
     let schema = CollectionSchemaBuilder::new(collection_name, "Soak Test Collection")

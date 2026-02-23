@@ -959,9 +959,9 @@ impl QueryIterator {
                     query_params,
                     not_return_all_meta: false,
                     consistency_level: self
-                    .options
-                    .consistency_level
-                    .unwrap_or(self.consistency_level as i32),
+                        .options
+                        .consistency_level
+                        .unwrap_or(self.consistency_level as i32),
                     use_default_consistency: self.options.consistency_level.is_none(),
                     expr_template_values: self.options.expr_template_values.clone(),
                 })

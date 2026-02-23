@@ -29,6 +29,9 @@ pub fn status_to_result(status: &Option<Status>) -> Result<(), Error> {
     match ErrorCode::try_from(status.code) {
         Ok(ErrorCode::Success) => Ok(()),
         Ok(_) => Err(Error::from(status)),
-        Err(_) => Err(Error::Unexpected(format!("unknown error code {}", status.code))),
+        Err(_) => Err(Error::Server(
+            ErrorCode::UnexpectedError,
+            format!("{} (code {})", status.reason, status.code),
+        )),
     }
 }

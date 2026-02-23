@@ -22,8 +22,8 @@ use crate::error::{Error as SuperError, Result};
 use crate::proto::milvus::{
     AlterCollectionFieldRequest, AlterCollectionRequest, CreateCollectionRequest,
     DropCollectionRequest, FlushRequest, GetCompactionStateRequest, GetCompactionStateResponse,
-    HasCollectionRequest, LoadCollectionRequest, ManualCompactionRequest, ManualCompactionResponse,
-    ReleaseCollectionRequest, ShowCollectionsRequest,
+    GetFlushStateRequest, HasCollectionRequest, LoadCollectionRequest, ManualCompactionRequest,
+    ManualCompactionResponse, ReleaseCollectionRequest, ShowCollectionsRequest,
 };
 use crate::proto::schema::DataType;
 use crate::schema::{CollectionSchema, CollectionSchemaBuilder};
@@ -681,20 +681,63 @@ impl Client {
     where
         S: Into<String>,
     {
+        let name = collection_name.into();
         let res = self
             .client
             .clone()
             .flush(FlushRequest {
                 base: Some(MsgBase::new(MsgType::Flush)),
                 db_name: "".to_string(),
-                collection_names: vec![collection_name.into()],
+                collection_names: vec![name.clone()],
             })
             .await?
             .into_inner();
 
         status_to_result(&res.status)?;
 
-        Ok(())
+        let flush_ts = match res.coll_flush_ts.get(&name) {
+            Some(&ts) => ts,
+            None => {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                return Ok(());
+            }
+        };
+        let segment_i_ds = res
+            .coll_seg_i_ds
+            .get(&name)
+            .map(|a| a.data.clone())
+            .unwrap_or_default();
+
+        let mut stub = self.client.clone();
+        let request = GetFlushStateRequest {
+            segment_i_ds: segment_i_ds.clone(),
+            flush_ts,
+            db_name: "".to_string(),
+            collection_name: name.clone(),
+        };
+        for _ in 0..60 {
+            let state = match tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                stub.get_flush_state(request.clone()),
+            )
+            .await
+            {
+                Ok(Ok(resp)) => resp.into_inner(),
+                Ok(Err(e)) => return Err(e.into()),
+                Err(_) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    continue;
+                }
+            };
+            status_to_result(&state.status)?;
+            if state.flushed {
+                return Ok(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+        Err(SuperError::Unexpected(
+            "flush did not complete within 30s".to_owned(),
+        ))
     }
 
     /// manual compaction

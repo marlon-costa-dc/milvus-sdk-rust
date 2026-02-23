@@ -100,12 +100,7 @@ impl Client {
             ..Default::default()
         };
 
-        let res = self
-            .client
-            .clone()
-            .show_partitions(req)
-            .await?
-            .into_inner();
+        let res = self.client.clone().show_partitions(req).await?.into_inner();
         status_to_result(&res.status)?;
         Ok(res.partition_names)
     }

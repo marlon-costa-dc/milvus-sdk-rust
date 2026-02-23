@@ -10,7 +10,11 @@ use milvus::{
     value::ValueVec,
 };
 use rand::prelude::*;
-use std::{collections::HashMap, sync::{Arc, Mutex}, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::time::sleep;
 
 const AGGRESSIVE_COLLECTION_NAME: &str = "aggressive_hpc_test_collection";
@@ -100,10 +104,7 @@ async fn high_concurrency_crud_and_indexing() -> Result<()> {
             let ids_to_delete = {
                 let guard = inserted_ids_clone.lock().unwrap();
                 let mut rng = rand::rng();
-                let sample: Vec<i64> = guard
-                    .sample(&mut rng, DELETE_BATCH_SIZE)
-                    .cloned()
-                    .collect();
+                let sample: Vec<i64> = guard.sample(&mut rng, DELETE_BATCH_SIZE).cloned().collect();
                 sample
             };
             if !ids_to_delete.is_empty() {
@@ -140,16 +141,24 @@ async fn high_concurrency_crud_and_indexing() -> Result<()> {
         )
         .await?;
 
-    // 5. Verification
+    // 5. Verification (retry until stats reflect deletes; avoid hang with bounded attempts)
     client.flush(AGGRESSIVE_COLLECTION_NAME).await?;
-    sleep(Duration::from_secs(5)).await; // Give time for stats to update
-    let stats = client
-        .get_collection_stats(AGGRESSIVE_COLLECTION_NAME)
-        .await?;
-    let row_count = stats.get("row_count").unwrap().parse::<i64>().unwrap();
+    let expected = (WRITER_TASKS as i64 * TOTAL_INSERTS_PER_TASK) - total_deleted;
+    let mut row_count = 0i64;
+    for _ in 0..25 {
+        sleep(Duration::from_secs(2)).await;
+        let stats = client
+            .get_collection_stats(AGGRESSIVE_COLLECTION_NAME)
+            .await?;
+        row_count = stats.get("row_count").unwrap().parse::<i64>().unwrap();
+        if row_count == expected {
+            break;
+        }
+    }
     assert_eq!(
-        row_count,
-        (WRITER_TASKS as i64 * TOTAL_INSERTS_PER_TASK) - total_deleted
+        row_count, expected,
+        "row_count {} != expected {} (total_deleted {})",
+        row_count, expected, total_deleted
     );
 
     client.drop_collection(AGGRESSIVE_COLLECTION_NAME).await?;

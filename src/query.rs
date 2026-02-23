@@ -1430,9 +1430,9 @@ impl Client {
         S: Into<String>,
     {
         let options = options.unwrap_or_default();
-        let effective_ranker = ranker.or(options.ranker).unwrap_or_else(|| {
-            Box::new(RrfRanker::new(60.0)) as Box<dyn BaseRanker>
-        });
+        let effective_ranker = ranker
+            .or(options.ranker)
+            .unwrap_or_else(|| Box::new(RrfRanker::new(60.0)) as Box<dyn BaseRanker>);
         let collection_name = collection_name.into();
         let collection = self.collection_cache.get(&collection_name).await?;
 

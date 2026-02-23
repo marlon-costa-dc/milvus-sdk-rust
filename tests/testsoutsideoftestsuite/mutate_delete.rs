@@ -18,10 +18,7 @@ async fn insert_data(
 
     let fields = vec![
         FieldColumn::new(collection.get_field("id").unwrap(), ids.clone()),
-        FieldColumn::new(
-            collection.get_field(DEFAULT_VEC_FIELD).unwrap(),
-            vectors,
-        ),
+        FieldColumn::new(collection.get_field(DEFAULT_VEC_FIELD).unwrap(), vectors),
     ];
 
     client.insert(collection.name(), fields, None).await?;

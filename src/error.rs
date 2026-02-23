@@ -75,7 +75,13 @@ pub enum Error {
 
 impl From<Status> for Error {
     fn from(s: Status) -> Self {
-        Error::Server(ErrorCode::try_from(s.code).unwrap(), s.reason)
+        let code = ErrorCode::try_from(s.code).unwrap_or(ErrorCode::UnexpectedError);
+        let reason = if code == ErrorCode::UnexpectedError && s.code != code as i32 {
+            format!("{} (code {})", s.reason, s.code)
+        } else {
+            s.reason
+        };
+        Error::Server(code, reason)
     }
 }
 
