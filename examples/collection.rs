@@ -2,12 +2,9 @@ use milvus::index::{IndexParams, IndexType};
 use milvus::options::LoadOptions;
 use milvus::query::QueryOptions;
 use milvus::schema::{CollectionSchema, CollectionSchemaBuilder};
-use milvus::{
-    client::Client, collection::Collection, data::FieldColumn, error::Error, schema::FieldSchema,
-};
-use std::collections::HashMap;
-
+use milvus::{client::Client, data::FieldColumn, error::Error, schema::FieldSchema};
 use rand::prelude::*;
+use std::collections::HashMap;
 
 const DEFAULT_VEC_FIELD: &str = "embed";
 const DIM: i64 = 256;
@@ -44,8 +41,8 @@ async fn main() -> Result<(), Error> {
 async fn hello_milvus(client: &Client, collection: &CollectionSchema) -> Result<(), Error> {
     let mut embed_data = Vec::<f32>::new();
     for _ in 1..=DIM * 1000 {
-        let mut rng = rand::thread_rng();
-        let embed = rng.gen();
+        let mut rng = rand::rng();
+        let embed: f32 = rng.random();
         embed_data.push(embed);
     }
     let embed_column =

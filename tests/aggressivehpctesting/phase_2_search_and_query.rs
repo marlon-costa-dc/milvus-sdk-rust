@@ -1,20 +1,16 @@
-#[path = "../common/mod.rs"]
-mod common;
-
-use common::*;
+use crate::common::*;
 use futures::future::join_all;
 use milvus::{
     client::*,
-    collection::*,
     data::FieldColumn,
     error::Result,
     index::{IndexParams, IndexType, MetricType},
-    mutate::{DeleteOptions, InsertOptions},
+    mutate::DeleteOptions,
     query::{QueryOptions, SearchOptions},
     schema::{CollectionSchemaBuilder, FieldSchema},
     value::ValueVec,
 };
-use rand::{seq::SliceRandom, Rng};
+use rand::prelude::*;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -76,7 +72,7 @@ async fn high_volume_search_and_query_under_load() -> Result<()> {
             let start_id = i * BATCH_SIZE;
             let ids: Vec<i64> = (start_id..start_id + BATCH_SIZE).collect();
             let vectors: Vec<f32> = (0..(BATCH_SIZE * DEFAULT_DIM))
-                .map(|_| rand::thread_rng().gen())
+                .map(|_| rand::rng().random())
                 .collect();
             let varchars: Vec<String> = (0..BATCH_SIZE)
                 .map(|k| format!("varchar_{}", start_id + k))
@@ -133,7 +129,7 @@ async fn high_volume_search_and_query_under_load() -> Result<()> {
         tasks.push(tokio::spawn(async move {
             while start_time.elapsed() < test_duration {
                 let query_vector: Vec<f32> =
-                    (0..DEFAULT_DIM).map(|_| rand::thread_rng().gen()).collect();
+                    (0..DEFAULT_DIM).map(|_| rand::rng().random()).collect();
                 let search_options = SearchOptions::new()
                     .limit(10)
                     .radius(1.0)
@@ -157,7 +153,7 @@ async fn high_volume_search_and_query_under_load() -> Result<()> {
 
         tasks.push(tokio::spawn(async move {
             while start_time.elapsed() < test_duration {
-                let random_id = rand::thread_rng().gen_range(0..INITIAL_ENTITY_COUNT);
+                let random_id = rand::rng().random_range(0..INITIAL_ENTITY_COUNT);
                 let expr = format!("id == {}", random_id);
                 let query_options = QueryOptions::new()
                     .output_fields(vec!["id".to_string(), "varchar_field".to_string()]);
@@ -183,7 +179,7 @@ async fn high_volume_search_and_query_under_load() -> Result<()> {
                 let start_id = INITIAL_ENTITY_COUNT + (i as i64 * 1_000_000) + counter;
                 let ids = vec![start_id];
                 let vectors: Vec<f32> =
-                    (0..DEFAULT_DIM).map(|_| rand::thread_rng().gen()).collect();
+                    (0..DEFAULT_DIM).map(|_| rand::rng().random()).collect();
                 let varchars = vec![format!("churn_{}", start_id)];
                 let fields = vec![
                     FieldColumn::new(&id_schema_clone, ids.clone()),
@@ -203,8 +199,9 @@ async fn high_volume_search_and_query_under_load() -> Result<()> {
                     if guard.is_empty() {
                         Vec::new()
                     } else {
+                        let mut rng = rand::rng();
                         let sample: Vec<i64> = guard
-                            .choose_multiple(&mut rand::thread_rng(), 1)
+                            .sample(&mut rng, 1)
                             .cloned()
                             .collect();
                         // Remove the selected IDs from the shared list to prevent double deletion

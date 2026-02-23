@@ -16,15 +16,13 @@ async fn insert_data(
         .map(|i| i as f32)
         .collect::<Vec<_>>();
 
-    let mut fields = Vec::new();
-    fields.push(FieldColumn::new(
-        collection.get_field("id").unwrap(),
-        ids.clone(),
-    ));
-    fields.push(FieldColumn::new(
-        collection.get_field(DEFAULT_VEC_FIELD).unwrap(),
-        vectors,
-    ));
+    let fields = vec![
+        FieldColumn::new(collection.get_field("id").unwrap(), ids.clone()),
+        FieldColumn::new(
+            collection.get_field(DEFAULT_VEC_FIELD).unwrap(),
+            vectors,
+        ),
+    ];
 
     client.insert(collection.name(), fields, None).await?;
 

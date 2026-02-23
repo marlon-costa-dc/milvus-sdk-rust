@@ -31,5 +31,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Post-process: remove #[deprecated] from CollectionSchema.auto_id (proto has no replacement yet).
+    let schema_rs = out_dir.join("milvus.proto.schema.rs");
+    if schema_rs.exists() {
+        let content = fs::read_to_string(&schema_rs)?;
+        let fixed = content
+            .replace(
+                "\n    #[deprecated]\n    #[prost(bool, tag = \"3\")]\n    pub auto_id: bool,",
+                "\n    #[prost(bool, tag = \"3\")]\n    pub auto_id: bool,",
+            )
+            .replace(
+                "/// deprecated later, keep compatible with c++ part now",
+                "/// keep compatible with server; no replacement field in proto yet",
+            );
+        if fixed != content {
+            fs::write(&schema_rs, fixed)?;
+        }
+    }
+
     Ok(())
 }

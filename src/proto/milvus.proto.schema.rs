@@ -84,8 +84,7 @@ pub struct CollectionSchema {
     pub name: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub description: ::prost::alloc::string::String,
-    /// deprecated later, keep compatible with c++ part now
-    #[deprecated]
+    /// keep compatible with server; no replacement field in proto yet
     #[prost(bool, tag = "3")]
     pub auto_id: bool,
     #[prost(message, repeated, tag = "4")]

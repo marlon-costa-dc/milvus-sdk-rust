@@ -14,15 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use milvus::client::{self, *};
-use milvus::data::FieldColumn;
+use milvus::client::*;
 use milvus::error::Result;
-use milvus::index::IndexType;
 use milvus::options::CreateCollectionOptions;
-use milvus::proto::schema;
-use milvus::query::{IdType, QueryOptions};
-use milvus::{collection, schema::*};
-use rand::Rng;
+use milvus::schema::*;
 use std::collections::HashMap;
 mod common;
 use common::*;
@@ -89,7 +84,7 @@ async fn create_has_drop_collection() -> Result<()> {
         client.drop_collection(NAME).await?;
     }
 
-    let _collection = client
+    client
         .create_collection(
             schema,
             Some(CreateCollectionOptions::with_consistency_level(

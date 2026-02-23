@@ -9,7 +9,7 @@ use milvus::index::{IndexParams, IndexType, MetricType};
 use milvus::query::*;
 use milvus::schema::{CollectionSchemaBuilder, FieldSchema};
 use milvus::value::Value;
-use rand::Rng;
+use rand::prelude::*;
 
 const DIM: i64 = 8;
 const NUM_ENTITIES: usize = 10000;
@@ -58,7 +58,7 @@ async fn query_test(client: &Client) -> Result<()> {
 async fn search_test(client: &Client) -> Result<()> {
     let vector_to_search = Value::from(
         (0..DIM as usize)
-            .map(|_| rand::thread_rng().gen_range(0.0..1.0))
+            .map(|_| rand::rng().random_range(0.0..1.0))
             .collect::<Vec<f32>>(),
     );
     println!("==========Search test begin==========");
@@ -131,7 +131,7 @@ async fn prepare_data(client: &Client) -> Result<()> {
         .collect::<Vec<_>>();
     let deposit = (0..NUM_ENTITIES).map(|i| i as f64).collect::<Vec<_>>();
     let picture = (0..NUM_ENTITIES * DIM as usize)
-        .map(|_| rand::thread_rng().gen_range(0.0..1.0))
+        .map(|_| rand::rng().random_range(0.0..1.0))
         .collect::<Vec<f32>>();
 
     let id_column = FieldColumn::new(schema.get_field(USER_ID).unwrap(), ids);
@@ -214,14 +214,14 @@ fn print_search_results(res: &Vec<SearchResult<'_>>) {
         let id_column: Vec<i64> = ids.clone().try_into().unwrap();
         let age_column: Vec<i64> = ages.clone().try_into().unwrap();
         let picture_column: Vec<f32> = pictures.clone().try_into().unwrap();
-        let score_column: Vec<f32> = scores.clone().try_into().unwrap();
+        let score_column: Vec<f32> = scores.clone();
         for (id, age, picture, score) in id_column
             .iter()
             .zip(age_column.iter())
             .zip(picture_column.chunks(DIM as usize))
             .zip(score_column.iter())
             .map(|(((id, age), picture), score)| {
-                (id.clone(), age.clone(), picture.to_vec(), score.clone())
+                (*id, *age, picture.to_vec(), *score)
             })
         {
             println!(
@@ -232,7 +232,7 @@ fn print_search_results(res: &Vec<SearchResult<'_>>) {
     }
 }
 
-fn print_get_results(res: &Vec<FieldColumn>) {
+fn print_get_results(res: &[FieldColumn]) {
     let id_column = res.iter().find(|col| col.name == USER_ID).unwrap();
     let age_column = res.iter().find(|col| col.name == AGE).unwrap();
     let deposit_column = res.iter().find(|col| col.name == DEPOSIT).unwrap();
@@ -248,7 +248,7 @@ fn print_get_results(res: &Vec<FieldColumn>) {
         .zip(deposits.iter())
         .zip(pictures.chunks(DIM as usize))
         .map(|(((id, age), deposit), picture)| {
-            (id.clone(), age.clone(), deposit.clone(), picture.to_vec())
+            (*id, *age, *deposit, picture.to_vec())
         })
     {
         println!(

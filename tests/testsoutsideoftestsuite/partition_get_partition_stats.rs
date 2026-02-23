@@ -2,7 +2,6 @@
 mod common;
 
 use common::*;
-use milvus::client::*;
 
 #[tokio::test]
 async fn test_get_partition_stats() {

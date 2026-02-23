@@ -1,40 +1,26 @@
-#[path = "../common/mod.rs"]
-mod common;
-
-use common::*;
+use crate::common::*;
 use futures::future::join_all;
 use milvus::{
     client::*,
-    collection::*,
     data::FieldColumn,
     error::Result,
     index::{IndexParams, IndexType, MetricType},
-    mutate::{DeleteOptions, InsertOptions},
-    proto::schema::DataType,
-    query::SearchOptions,
+    mutate::DeleteOptions,
     schema::{CollectionSchemaBuilder, FieldSchema},
-    value::{Value, ValueVec},
+    value::ValueVec,
 };
-use rand::seq::SliceRandom;
-use rand::Rng;
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use rand::prelude::*;
+use std::{collections::HashMap, sync::{Arc, Mutex}, time::Duration};
 use tokio::time::sleep;
 
 const AGGRESSIVE_COLLECTION_NAME: &str = "aggressive_hpc_test_collection";
 const BATCH_SIZE: i64 = 1000;
 const WRITER_TASKS: usize = 20;
 const DELETER_TASKS: usize = 5;
-const UPSERTER_TASKS: usize = 5;
 const TOTAL_INSERTS_PER_TASK: i64 = 10_000;
 const DELETE_BATCH_SIZE: usize = 100;
 
 #[tokio::test]
-#[ignore]
 async fn high_concurrency_crud_and_indexing() -> Result<()> {
     let client = ClientBuilder::new(URL)
         .timeout(Duration::from_secs(60))
@@ -75,7 +61,7 @@ async fn high_concurrency_crud_and_indexing() -> Result<()> {
                 let start_id = (i as i64 * TOTAL_INSERTS_PER_TASK) + (j * BATCH_SIZE);
                 let ids: Vec<i64> = (start_id..start_id + BATCH_SIZE).collect();
                 let vectors: Vec<f32> = (0..(BATCH_SIZE * DEFAULT_DIM))
-                    .map(|_| rand::thread_rng().gen())
+                    .map(|_| rand::rng().random())
                     .collect();
                 let varchars: Vec<String> = (0..BATCH_SIZE)
                     .map(|k| format!("varchar_{}", start_id + k))
@@ -112,10 +98,10 @@ async fn high_concurrency_crud_and_indexing() -> Result<()> {
 
         delete_tasks.push(tokio::spawn(async move {
             let ids_to_delete = {
-                let mut guard = inserted_ids_clone.lock().unwrap();
-                let mut rng = rand::thread_rng();
+                let guard = inserted_ids_clone.lock().unwrap();
+                let mut rng = rand::rng();
                 let sample: Vec<i64> = guard
-                    .choose_multiple(&mut rng, DELETE_BATCH_SIZE)
+                    .sample(&mut rng, DELETE_BATCH_SIZE)
                     .cloned()
                     .collect();
                 sample

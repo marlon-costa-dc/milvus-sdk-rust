@@ -14,13 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use milvus::client::{self, *};
 use milvus::error::Result;
-use milvus::index::IndexType;
-use milvus::options::CreateCollectionOptions;
-use milvus::proto::schema;
-use milvus::{collection, schema::*};
-use std::collections::HashMap;
 
 mod common;
 use common::*;

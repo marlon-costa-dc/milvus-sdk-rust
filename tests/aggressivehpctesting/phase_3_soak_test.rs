@@ -1,10 +1,6 @@
-#[path = "../common/mod.rs"]
-mod common;
-
-use common::*;
+use crate::common::*;
 use milvus::{
     client::*,
-    collection::*,
     data::FieldColumn,
     error::Result,
     index::{IndexParams, IndexType, MetricType},
@@ -21,7 +17,6 @@ const SOAK_TEST_DURATION_MINS: u64 = 60;
 const SOAK_COLLECTION_NAME: &str = "soak_test_collection";
 
 #[tokio::test]
-#[ignore]
 async fn soak_test_for_stability_and_memory_leaks() -> Result<()> {
     let client = ClientBuilder::new(URL)
         .timeout(Duration::from_secs(60))

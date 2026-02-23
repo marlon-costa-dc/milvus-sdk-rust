@@ -1522,7 +1522,7 @@ impl Client {
         }
 
         // Prepare ranker parameters
-        let rank_params = prepare_rank_params(&vec![], effective_ranker.get_params());
+        let rank_params = prepare_rank_params(&[], effective_ranker.get_params());
 
         // Create HybridSearchRequest
         let request = proto::milvus::HybridSearchRequest {

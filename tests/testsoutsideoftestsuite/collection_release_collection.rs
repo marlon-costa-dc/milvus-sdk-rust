@@ -2,11 +2,6 @@
 mod common;
 
 use common::*;
-use milvus::{
-    client::*,
-    index::{IndexParams, IndexType, MetricType},
-};
-use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_release_collection() {

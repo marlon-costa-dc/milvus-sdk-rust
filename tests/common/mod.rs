@@ -1,10 +1,12 @@
+#![allow(dead_code)]
+
 use milvus::client::*;
 use milvus::data::FieldColumn;
 use milvus::error::Result;
 use milvus::index::IndexType;
 use milvus::options::CreateCollectionOptions;
 use milvus::schema::{CollectionSchema, CollectionSchemaBuilder, FieldSchema};
-use rand::Rng;
+use rand::prelude::*;
 
 pub const DEFAULT_DIM: i64 = 128;
 pub const DEFAULT_VEC_FIELD: &str = "feature";
@@ -85,21 +87,20 @@ pub async fn create_test_collection_custom(
 }
 
 pub fn gen_random_name() -> String {
+    let mut rng = rand::rng();
     format!(
         "r{}",
-        rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
-            .take(7)
-            .map(char::from)
+        (0..7)
+            .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
             .collect::<String>(),
     )
 }
 
 pub fn gen_random_int64_vector(n: i64) -> Vec<i64> {
     let mut data: Vec<i64> = Vec::with_capacity(n as usize);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for _ in 0..n {
-        data.push(rng.gen());
+        data.push(rng.random());
     }
     data
 }
@@ -110,9 +111,9 @@ pub fn gen_random_f32_vector(n: i64) -> Vec<f32> {
 
 pub fn gen_random_f32_vector_custom(n: i64, dimension: i64) -> Vec<f32> {
     let mut data = Vec::<f32>::with_capacity((n * dimension) as usize);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for _ in 0..n * dimension {
-        data.push(rng.gen());
+        data.push(rng.random());
     }
     data
 }

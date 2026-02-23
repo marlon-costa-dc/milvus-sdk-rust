@@ -14,12 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use milvus::client::ConsistencyLevel;
-use milvus::collection::{Collection, ParamValue};
 use milvus::data::FieldColumn;
 use milvus::error::Result;
 use milvus::index::{IndexParams, IndexType, MetricType};
-use milvus::mutate::InsertOptions;
 use milvus::options::LoadOptions;
 use milvus::query::{QueryOptions, SearchOptions};
 use std::collections::HashMap;

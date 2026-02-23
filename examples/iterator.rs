@@ -6,7 +6,7 @@ use milvus::iterator::{QueryIteratorOptions, SearchIteratorOptions};
 use milvus::options::LoadOptions;
 use milvus::schema::{CollectionSchemaBuilder, FieldSchema};
 use milvus::value::Value;
-use rand::Rng;
+use rand::prelude::*;
 use std::collections::HashMap;
 
 const COLLECTION_NAME: &str = "test_rust_iterator";
@@ -19,8 +19,8 @@ const NUM_ENTITIES: i64 = 10000;
 
 async fn test_search_iterator(client: &Client) -> Result<(), Error> {
     // Generate a random vector for search
-    let mut rng = rand::thread_rng();
-    let search_vector: Vec<f32> = (0..DIM).map(|_| rng.gen()).collect();
+    let mut rng = rand::rng();
+    let search_vector: Vec<f32> = (0..DIM).map(|_| rng.random()).collect();
 
     // Create search iterator options
     let search_options = SearchIteratorOptions::new()
@@ -166,13 +166,13 @@ async fn main() -> Result<(), Error> {
     let mut deposits = Vec::with_capacity(NUM_ENTITIES as usize);
     let mut pictures = Vec::with_capacity((NUM_ENTITIES * DIM) as usize);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for i in 0..NUM_ENTITIES {
         user_ids.push(i);
-        ages.push((i % 100) as i64);
+        ages.push(i % 100);
         deposits.push(i as f64);
         for _ in 0..DIM {
-            pictures.push(rng.gen::<f32>());
+            pictures.push(rng.random::<f32>());
         }
     }
 
