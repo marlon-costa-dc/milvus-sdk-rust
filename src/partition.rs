@@ -103,17 +103,17 @@ impl Client {
     ///
     /// Returns a `Result` containing a vector of partition names if successful, or an error if the operation fails.
     pub async fn list_partitions(&self, collection_name: String) -> Result<Vec<String>> {
+        let mut req = crate::proto::milvus::ShowPartitionsRequest::default();
+        req.base = Some(MsgBase::new(MsgType::ShowPartitions));
+        req.db_name = "".to_string();
+        req.collection_name = collection_name;
+        req.collection_id = 0;
+        req.partition_names = vec![];
+
         let res = self
             .client
             .clone()
-            .show_partitions(crate::proto::milvus::ShowPartitionsRequest {
-                base: Some(MsgBase::new(MsgType::ShowPartitions)),
-                db_name: "".to_string(), // reserved
-                collection_name,
-                collection_id: 0,        // reserved
-                partition_names: vec![], // reserved
-                r#type: 0,               // reserved
-            })
+            .show_partitions(req)
             .await?
             .into_inner();
         status_to_result(&res.status)?;
@@ -208,7 +208,7 @@ impl Client {
                 base: Some(MsgBase::new(MsgType::LoadPartitions)),
                 db_name: "".to_string(),
                 collection_name: collection_name.into(),
-                partition_names: partition_names,
+                partition_names,
             })
             .await?
             .into_inner();

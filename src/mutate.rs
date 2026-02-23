@@ -12,17 +12,9 @@ use crate::{
     value::ValueVec,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct InsertOptions {
     pub(crate) partition_name: String,
-}
-
-impl Default for InsertOptions {
-    fn default() -> Self {
-        Self {
-            partition_name: String::new(),
-        }
-    }
 }
 
 impl InsertOptions {
@@ -126,7 +118,7 @@ impl Client {
                 base: Some(MsgBase::new(MsgType::Delete)),
                 db_name: "".to_string(),
                 collection_name: collection_name.clone(),
-                expr: expr,
+                expr,
                 partition_name: options.partition_name.clone(),
                 hash_keys: Vec::new(),
                 consistency_level: crate::proto::common::ConsistencyLevel::Strong.into(),

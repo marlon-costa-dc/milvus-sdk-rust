@@ -16,6 +16,8 @@
 // For custom error handling
 // TODO
 
+use std::convert::TryFrom;
+
 use crate::collection::Error as CollectionError;
 use crate::proto::common::{ErrorCode, Status};
 use crate::schema::Error as SchemaError;
@@ -73,7 +75,7 @@ pub enum Error {
 
 impl From<Status> for Error {
     fn from(s: Status) -> Self {
-        Error::Server(ErrorCode::from_i32(s.error_code).unwrap(), s.reason)
+        Error::Server(ErrorCode::try_from(s.code).unwrap(), s.reason)
     }
 }
 
