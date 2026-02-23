@@ -11,27 +11,27 @@ name = "milvus"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
-prost = "0.12.6"
-tokio = { version = "1.17.0", features = ["full"] }
-thiserror = "1.0"
+tonic = { version = "0.14", features = ["tls-native-roots"] }
+tonic-prost = "0.14"
+prost = "0.14"
+tokio = { version = "1.37", features = ["full"] }
+thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
-strum = "0.24"
-strum_macros = "0.24"
-base64 = "0.21.0"
-dashmap = "5.5.3"
+strum = "0.28"
+strum_macros = "0.28"
+base64 = "0.22"
+dashmap = "6.1"
 futures = "0.3.31"
-lazy_static = "1.4"
+lazy_static = "1.5"
+tonic-prost-build = "0.14"
 
 [build-dependencies]
-tonic-build = { version = "0.11.0", default-features = false, features = [
-    "prost",
-] }
+tonic-prost-build = "0.14"
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = "0.10"
 
 [[test]]
 name = "client_with_timeout"
