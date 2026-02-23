@@ -13,25 +13,13 @@ use crate::{
 /// load_partitions' waitting time
 const WAIT_LOAD_DURATION_MS: u64 = 100;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LoadPartitionsOption {
     resource_groups: Vec<String>,
     refresh: bool,
     load_fields: Vec<String>,
     skip_load_dynamic_field: bool,
     load_params: HashMap<String, String>,
-}
-
-impl Default for LoadPartitionsOption {
-    fn default() -> Self {
-        LoadPartitionsOption {
-            resource_groups: Vec::new(),
-            refresh: false,
-            load_fields: Vec::new(),
-            skip_load_dynamic_field: false,
-            load_params: HashMap::new(),
-        }
-    }
 }
 
 impl Client {
@@ -103,12 +91,14 @@ impl Client {
     ///
     /// Returns a `Result` containing a vector of partition names if successful, or an error if the operation fails.
     pub async fn list_partitions(&self, collection_name: String) -> Result<Vec<String>> {
-        let mut req = crate::proto::milvus::ShowPartitionsRequest::default();
-        req.base = Some(MsgBase::new(MsgType::ShowPartitions));
-        req.db_name = "".to_string();
-        req.collection_name = collection_name;
-        req.collection_id = 0;
-        req.partition_names = vec![];
+        let req = crate::proto::milvus::ShowPartitionsRequest {
+            base: Some(MsgBase::new(MsgType::ShowPartitions)),
+            db_name: "".to_string(),
+            collection_name,
+            collection_id: 0,
+            partition_names: vec![],
+            ..Default::default()
+        };
 
         let res = self
             .client
