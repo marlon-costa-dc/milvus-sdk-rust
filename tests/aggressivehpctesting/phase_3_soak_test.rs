@@ -56,13 +56,19 @@ async fn soak_test_for_stability_and_memory_leaks() -> Result<()> {
             );
         }
 
-        // Clean up collection even if it failed (timeout to avoid hang)
+        // Clean up collection even if it failed (timeout to avoid hang).
+        // Flush before drop so drop can complete (root cause: drop hangs if collection not flushed).
         if let Ok(Ok(true)) = timeout(
             Duration::from_secs(10),
             client.has_collection(&collection_name),
         )
         .await
         {
+            let _ = timeout(
+                Duration::from_secs(30),
+                client.flush(&collection_name),
+            )
+            .await;
             let _ = timeout(
                 Duration::from_secs(15),
                 client.drop_collection(&collection_name),
@@ -87,7 +93,8 @@ async fn run_full_sdk_cycle(
     collection_name: &str,
     partition_name: &str,
 ) -> Result<()> {
-    // 1. Create Collection & Partition (drop if exists so cycle is idempotent; timeout to avoid hang)
+    // 1. Create Collection & Partition (drop if exists so cycle is idempotent; timeout to avoid hang).
+    // Flush before drop so drop can complete (root cause: duplicate collection when drop hangs).
     let has = timeout(
         Duration::from_secs(10),
         client.has_collection(collection_name),
@@ -95,6 +102,11 @@ async fn run_full_sdk_cycle(
     .await
     .map_err(|_| milvus::error::Error::Unexpected("has_collection timed out".into()))??;
     if has {
+        let _ = timeout(
+            Duration::from_secs(30),
+            client.flush(collection_name),
+        )
+        .await;
         let _ = timeout(
             Duration::from_secs(15),
             client.drop_collection(collection_name),

@@ -6,16 +6,12 @@ use milvus::{
     error::Result,
     index::{IndexParams, IndexType, MetricType},
     mutate::DeleteOptions,
+    query::QueryOptions,
     schema::{CollectionSchemaBuilder, FieldSchema},
     value::ValueVec,
 };
 use rand::prelude::*;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-use tokio::time::sleep;
+use std::{collections::HashMap, sync::{Arc, Mutex}, time::Duration};
 
 const AGGRESSIVE_COLLECTION_NAME: &str = "aggressive_hpc_test_collection";
 const BATCH_SIZE: i64 = 1000;
@@ -104,7 +100,10 @@ async fn high_concurrency_crud_and_indexing() -> Result<()> {
             let ids_to_delete = {
                 let guard = inserted_ids_clone.lock().unwrap();
                 let mut rng = rand::rng();
-                let sample: Vec<i64> = guard.sample(&mut rng, DELETE_BATCH_SIZE).cloned().collect();
+                let sample: Vec<i64> = guard
+                    .sample(&mut rng, DELETE_BATCH_SIZE)
+                    .cloned()
+                    .collect();
                 sample
             };
             if !ids_to_delete.is_empty() {
@@ -141,24 +140,35 @@ async fn high_concurrency_crud_and_indexing() -> Result<()> {
         )
         .await?;
 
-    // 5. Verification (retry until stats reflect deletes; avoid hang with bounded attempts)
+    // 5. Verification: get_collection_stats row_count does not reflect deletes (Milvus docs).
+    // Use query with count(*) and Strong consistency for accurate logical count.
     client.flush(AGGRESSIVE_COLLECTION_NAME).await?;
     let expected = (WRITER_TASKS as i64 * TOTAL_INSERTS_PER_TASK) - total_deleted;
-    let mut row_count = 0i64;
-    for _ in 0..25 {
-        sleep(Duration::from_secs(2)).await;
-        let stats = client
-            .get_collection_stats(AGGRESSIVE_COLLECTION_NAME)
-            .await?;
-        row_count = stats.get("row_count").unwrap().parse::<i64>().unwrap();
-        if row_count == expected {
-            break;
-        }
-    }
+
+    client.load_collection(AGGRESSIVE_COLLECTION_NAME, None).await?;
+    let query_opts = QueryOptions::new()
+        .output_fields(vec!["count(*)".to_string()])
+        .consistency_level(ConsistencyLevel::Strong as i32);
+    let columns = client
+        .query(AGGRESSIVE_COLLECTION_NAME, "", &query_opts)
+        .await?;
+    let logical_count: i64 = columns
+        .iter()
+        .find(|c| c.name == "count(*)")
+        .and_then(|c| {
+            if let ValueVec::Long(v) = &c.value {
+                v.first().copied()
+            } else {
+                None
+            }
+        })
+        .expect("query count(*) must return one Long column");
+    client.release_collection(AGGRESSIVE_COLLECTION_NAME).await?;
+
     assert_eq!(
-        row_count, expected,
-        "row_count {} != expected {} (total_deleted {})",
-        row_count, expected, total_deleted
+        logical_count, expected,
+        "logical count {} != expected {} (total_deleted {})",
+        logical_count, expected, total_deleted
     );
 
     client.drop_collection(AGGRESSIVE_COLLECTION_NAME).await?;
