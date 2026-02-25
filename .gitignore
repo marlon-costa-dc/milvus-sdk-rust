@@ -17,3 +17,7 @@ Cargo.lock
 /target
 #Cargo.lock
 /.idea/
+
+# Local tooling (not part of upstream)
+/.arbor/
+/.sisyphus/
