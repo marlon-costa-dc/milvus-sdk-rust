@@ -64,11 +64,7 @@ async fn soak_test_for_stability_and_memory_leaks() -> Result<()> {
         )
         .await
         {
-            let _ = timeout(
-                Duration::from_secs(30),
-                client.flush(&collection_name),
-            )
-            .await;
+            let _ = timeout(Duration::from_secs(30), client.flush(&collection_name)).await;
             let _ = timeout(
                 Duration::from_secs(15),
                 client.drop_collection(&collection_name),
@@ -102,11 +98,7 @@ async fn run_full_sdk_cycle(
     .await
     .map_err(|_| milvus::error::Error::Unexpected("has_collection timed out".into()))??;
     if has {
-        let _ = timeout(
-            Duration::from_secs(30),
-            client.flush(collection_name),
-        )
-        .await;
+        let _ = timeout(Duration::from_secs(30), client.flush(collection_name)).await;
         let _ = timeout(
             Duration::from_secs(15),
             client.drop_collection(collection_name),

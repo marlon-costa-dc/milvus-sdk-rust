@@ -21,8 +21,7 @@ use crate::data::FieldColumn;
 use crate::error::{Error as SuperError, Result};
 use crate::proto::milvus::{
     AlterCollectionFieldRequest, AlterCollectionRequest, CreateCollectionRequest,
-    DropCollectionRequest, FlushRequest, GetCompactionStateRequest, GetCompactionStateResponse,
-    GetFlushStateRequest, HasCollectionRequest, LoadCollectionRequest, ManualCompactionRequest,
+    DropCollectionRequest, GetCompactionStateResponse, HasCollectionRequest, LoadCollectionRequest,
     ManualCompactionResponse, ReleaseCollectionRequest, ShowCollectionsRequest,
 };
 use crate::proto::schema::DataType;
@@ -152,7 +151,8 @@ impl From<proto::milvus::DescribeCollectionResponse> for Collection {
             auto_id: schema.auto_id,
             num_shards: value.shards_num as usize,
             // num_partitions: value.partitions_num as usize,
-            consistency_level: ConsistencyLevel::try_from(value.consistency_level).unwrap(),
+            consistency_level: ConsistencyLevel::try_from(value.consistency_level)
+                .unwrap_or(ConsistencyLevel::Strong),
             description: schema.description,
             fields: schema.fields.into_iter().map(Field::from).collect(),
             // enable_dynamic_field: value.enable_dynamic_field,
@@ -193,7 +193,8 @@ pub struct CompactionState {
 impl From<GetCompactionStateResponse> for CompactionState {
     fn from(value: GetCompactionStateResponse) -> Self {
         Self {
-            state: crate::proto::common::CompactionState::try_from(value.state).unwrap(),
+            state: crate::proto::common::CompactionState::try_from(value.state)
+                .unwrap_or(crate::proto::common::CompactionState::UndefiedState),
             executing_plan_num: value.executing_plan_no,
             timeout_plan_num: value.timeout_plan_no,
             completed_plan_num: value.completed_plan_no,
@@ -586,6 +587,43 @@ impl Client {
         status_to_result(&Some(resp))
     }
 
+    /// Drops properties of a collection field.
+    ///
+    /// # Arguments
+    ///
+    /// * `collection_name` - The name of the collection.
+    /// * `field_name` - The name of the field.
+    /// * `delete_keys` - The keys of the field properties to be deleted.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` indicating success or failure.
+    pub async fn drop_collection_field_properties<C, F>(
+        &self,
+        collection_name: C,
+        field_name: F,
+        delete_keys: Vec<String>,
+    ) -> Result<()>
+    where
+        C: Into<String>,
+        F: Into<String>,
+    {
+        let resp = self
+            .client
+            .clone()
+            .alter_collection_field(AlterCollectionFieldRequest {
+                base: Some(MsgBase::new(MsgType::AlterCollectionField)),
+                db_name: "".to_string(),
+                collection_name: collection_name.into(),
+                field_name: field_name.into(),
+                properties: Vec::new(),
+                delete_keys,
+            })
+            .await?
+            .into_inner();
+        status_to_result(&Some(resp))
+    }
+
     /// alter a collection
     ///
     /// # Arguments
@@ -677,118 +715,160 @@ impl Client {
         Ok(schema)
     }
 
-    pub async fn flush<S>(&self, collection_name: S) -> Result<()>
+    /// Truncate a collection (remove all data without dropping the collection).
+    /// Requires Milvus 2.6+.
+    pub async fn truncate_collection<S>(&self, collection_name: S) -> Result<()>
     where
         S: Into<String>,
     {
-        let name = collection_name.into();
-        let res = self
+        let resp = self
             .client
             .clone()
-            .flush(FlushRequest {
-                base: Some(MsgBase::new(MsgType::Flush)),
+            .truncate_collection(proto::milvus::TruncateCollectionRequest {
+                base: Some(MsgBase::new(MsgType::TruncateCollection)),
                 db_name: "".to_string(),
-                collection_names: vec![name.clone()],
+                collection_name: collection_name.into(),
             })
             .await?
             .into_inner();
-
-        status_to_result(&res.status)?;
-
-        let flush_ts = match res.coll_flush_ts.get(&name) {
-            Some(&ts) => ts,
-            None => {
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                return Ok(());
-            }
-        };
-        let segment_i_ds = res
-            .coll_seg_i_ds
-            .get(&name)
-            .map(|a| a.data.clone())
-            .unwrap_or_default();
-
-        let mut stub = self.client.clone();
-        let request = GetFlushStateRequest {
-            segment_i_ds: segment_i_ds.clone(),
-            flush_ts,
-            db_name: "".to_string(),
-            collection_name: name.clone(),
-        };
-        for _ in 0..60 {
-            let state = match tokio::time::timeout(
-                std::time::Duration::from_secs(5),
-                stub.get_flush_state(request.clone()),
-            )
-            .await
-            {
-                Ok(Ok(resp)) => resp.into_inner(),
-                Ok(Err(e)) => return Err(e.into()),
-                Err(_) => {
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                    continue;
-                }
-            };
-            status_to_result(&state.status)?;
-            if state.flushed {
-                return Ok(());
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        }
-        Err(SuperError::Unexpected(
-            "flush did not complete within 30s".to_owned(),
-        ))
+        status_to_result(&resp.status)?;
+        Ok(())
     }
 
-    /// manual compaction
-    ///
-    /// # Arguments
-    ///
-    /// * `collection_name` - The name of the collection
-    /// * `is_clustering` - Whether to perform clustering compaction
-    ///
-    /// # Returns
-    ///
-    /// Returns a `Result` containing the `CompactionInfo` if successful, or an error if the compaction fails.
-    pub async fn manual_compaction<S>(
+    /// Describe multiple collections in a single call.
+    /// Requires Milvus 2.6+.
+    pub async fn batch_describe_collections<S>(
+        &self,
+        collection_names: Vec<S>,
+    ) -> Result<Vec<Collection>>
+    where
+        S: Into<String>,
+    {
+        let resp = self
+            .client
+            .clone()
+            .batch_describe_collection(proto::milvus::BatchDescribeCollectionRequest {
+                db_name: "".to_string(),
+                collection_name: collection_names.into_iter().map(Into::into).collect(),
+                collection_id: vec![],
+            })
+            .await?
+            .into_inner();
+        status_to_result(&resp.status)?;
+
+        Ok(resp.responses.into_iter().map(|r| r.into()).collect())
+    }
+
+    /// Add a field to an existing collection (schema evolution).
+    /// The new field must be nullable. Requires Milvus 2.6+.
+    pub async fn add_collection_field<S>(
         &self,
         collection_name: S,
-        is_clustering: Option<bool>,
-    ) -> Result<CompactionInfo>
+        field: crate::schema::FieldSchema,
+    ) -> Result<()>
     where
         S: Into<String>,
     {
-        let collection = self.collection_cache.get(&collection_name.into()).await?;
-        let major_compaction = is_clustering.unwrap_or(false);
+        let proto_field: crate::proto::schema::FieldSchema = field.into();
+        let mut buf = BytesMut::new();
+        proto_field.encode(&mut buf)?;
 
         let resp = self
             .client
             .clone()
-            .manual_compaction(ManualCompactionRequest {
-                collection_id: collection.id,
-                timetravel: 0,
-                major_compaction,
-                collection_name: collection.name,
+            .add_collection_field(proto::milvus::AddCollectionFieldRequest {
+                base: Some(MsgBase::new(MsgType::AddCollectionField)),
                 db_name: "".to_string(),
-                partition_id: 0,
-                segment_ids: vec![],
-                channel: "".to_string(),
+                collection_name: collection_name.into(),
+                collection_id: 0,
+                schema: buf.to_vec(),
             })
             .await?
             .into_inner();
-        status_to_result(&resp.status)?;
-        Ok(resp.into())
+        status_to_result(&Some(resp))?;
+        Ok(())
     }
 
-    pub async fn get_compaction_state(&self, compaction_id: i64) -> Result<CompactionState> {
+    /// Add a function to an existing collection.
+    /// Requires Milvus 2.6+.
+    pub async fn add_collection_function<S>(
+        &self,
+        collection_name: S,
+        function: proto::schema::FunctionSchema,
+    ) -> Result<()>
+    where
+        S: Into<String>,
+    {
         let resp = self
             .client
             .clone()
-            .get_compaction_state(GetCompactionStateRequest { compaction_id })
+            .add_collection_function(proto::milvus::AddCollectionFunctionRequest {
+                base: Some(MsgBase::new(MsgType::AddCollectionFunction)),
+                db_name: "".to_string(),
+                collection_name: collection_name.into(),
+                collection_id: 0,
+                function_schema: Some(function),
+            })
             .await?
             .into_inner();
-        status_to_result(&resp.status)?;
-        Ok(resp.into())
+        status_to_result(&Some(resp))?;
+        Ok(())
+    }
+
+    /// Alter a function on an existing collection.
+    /// Requires Milvus 2.6+.
+    pub async fn alter_collection_function<S, F>(
+        &self,
+        collection_name: S,
+        function_name: F,
+        function: proto::schema::FunctionSchema,
+    ) -> Result<()>
+    where
+        S: Into<String>,
+        F: Into<String>,
+    {
+        let resp = self
+            .client
+            .clone()
+            .alter_collection_function(proto::milvus::AlterCollectionFunctionRequest {
+                base: Some(MsgBase::new(MsgType::AlterCollectionFunction)),
+                db_name: "".to_string(),
+                collection_name: collection_name.into(),
+                collection_id: 0,
+                function_name: function_name.into(),
+                function_schema: Some(function),
+            })
+            .await?
+            .into_inner();
+        status_to_result(&Some(resp))?;
+        Ok(())
+    }
+
+    /// Drop a function from a collection.
+    /// Requires Milvus 2.6+.
+    pub async fn drop_collection_function<S, F>(
+        &self,
+        collection_name: S,
+        function_name: F,
+    ) -> Result<()>
+    where
+        S: Into<String>,
+        F: Into<String>,
+    {
+        let resp = self
+            .client
+            .clone()
+            .drop_collection_function(proto::milvus::DropCollectionFunctionRequest {
+                base: Some(MsgBase::new(MsgType::DropCollectionFunction)),
+                db_name: "".to_string(),
+                collection_name: collection_name.into(),
+                collection_id: 0,
+                function_name: function_name.into(),
+            })
+            .await?
+            .into_inner();
+        status_to_result(&Some(resp))?;
+        Ok(())
     }
 }
 
@@ -802,6 +882,8 @@ pub struct SearchResult<'a> {
     pub id: Vec<Value<'a>>,
     pub field: Vec<FieldColumn>,
     pub score: Vec<f32>,
+    /// Highlight results for full-text search (Milvus 2.6+)
+    pub highlight_results: Vec<crate::proto::common::HighlightResult>,
 }
 
 pub struct IndexProgress {

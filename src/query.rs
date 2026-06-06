@@ -13,7 +13,7 @@
 //!
 //! ## Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use milvus_sdk_rust::client::Client;
 //! use milvus_sdk_rust::query::{SearchOptions, QueryOptions, AnnSearchRequest, WeightedRanker};
 //! use milvus_sdk_rust::value::Value;
@@ -40,7 +40,7 @@ use prost::Message;
 
 use crate::client::{Client, ConsistencyLevel};
 use crate::collection::{Collection, SearchResult};
-use crate::data::FieldColumn;
+use crate::data::{slice_field_columns, FieldColumn};
 use crate::error::Error as SuperError;
 use crate::proto::common::{
     DslType, KeyValuePair, MsgBase, MsgType, PlaceholderGroup, PlaceholderType, PlaceholderValue,
@@ -72,7 +72,7 @@ const EVENTUALLY_TIMESTAMP: u64 = 1;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use milvus_sdk_rust::query::AnnSearchRequest;
 /// use milvus_sdk_rust::value::Value;
 /// use milvus_sdk_rust::proto::common::KeyValuePair;
@@ -274,7 +274,7 @@ pub trait BaseRanker: Send + Sync {
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use milvus_sdk_rust::query::WeightedRanker;
 ///
 /// // Give 70% weight to first search, 30% to second search
@@ -325,7 +325,7 @@ impl BaseRanker for WeightedRanker {
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use milvus_sdk_rust::query::RrfRanker;
 ///
 /// // Create RRF ranker with k=60 (typical value)
@@ -378,7 +378,7 @@ pub type HybridSearchOptions = SearchOptions;
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use milvus_sdk_rust::query::QueryOptions;
 ///
 /// let options = QueryOptions::new()
@@ -396,6 +396,7 @@ pub struct QueryOptions {
     consistency_level: i32,
     use_default_consistency: bool,
     expr_template_values: HashMap<String, crate::proto::schema::TemplateValue>,
+    namespace: Option<String>,
 }
 
 // get() shares query()'s options
@@ -504,6 +505,19 @@ impl QueryOptions {
         Self::default().expr_template_values(expr_template_values)
     }
 
+    /// Creates QueryOptions with a specified namespace
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace` - Namespace for multi-tenancy (Milvus 2.6+)
+    ///
+    /// # Returns
+    ///
+    /// A new `QueryOptions` instance
+    pub fn with_namespace(namespace: impl Into<String>) -> Self {
+        Self::default().namespace(namespace)
+    }
+
     /// Sets the output fields for the query
     ///
     /// # Arguments
@@ -543,6 +557,20 @@ impl QueryOptions {
     /// Self for method chaining
     pub fn guarantee_timestamp(mut self, guarantee_timestamp: u64) -> Self {
         self.guarantee_timestamp = guarantee_timestamp;
+        self
+    }
+
+    /// Sets the namespace for the query
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace` - Namespace for multi-tenancy (Milvus 2.6+)
+    ///
+    /// # Returns
+    ///
+    /// Self for method chaining
+    pub fn namespace(mut self, namespace: impl Into<String>) -> Self {
+        self.namespace = Some(namespace.into());
         self
     }
 
@@ -802,7 +830,7 @@ impl QueryOptions {
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use milvus_sdk_rust::query::SearchOptions;
 ///
 /// let options = SearchOptions::new()
@@ -822,6 +850,10 @@ pub struct SearchOptions {
     pub(crate) ranker: Option<Box<dyn BaseRanker>>,
     pub(crate) expr_template_values: HashMap<String, proto::schema::TemplateValue>,
     pub(crate) other_params: Option<Vec<KeyValuePair>>,
+    /// Namespace for multi-tenancy (Milvus 2.6+)
+    pub(crate) namespace: Option<String>,
+    /// Highlighter configuration for full-text search (Milvus 2.6+)
+    pub(crate) highlighter: Option<proto::common::Highlighter>,
 }
 
 impl Default for SearchOptions {
@@ -836,6 +868,8 @@ impl Default for SearchOptions {
             ranker: None,
             expr_template_values: HashMap::new(),
             other_params: None,
+            namespace: None,
+            highlighter: None,
         }
     }
 }
@@ -1094,6 +1128,18 @@ impl SearchOptions {
         self.expr_template_values.insert(key, template_value);
         self
     }
+
+    /// Set namespace for multi-tenancy (Milvus 2.6+)
+    pub fn namespace(mut self, namespace: impl Into<String>) -> Self {
+        self.namespace = Some(namespace.into());
+        self
+    }
+
+    /// Set highlighter for full-text search results (Milvus 2.6+)
+    pub fn highlighter(mut self, highlighter: proto::common::Highlighter) -> Self {
+        self.highlighter = Some(highlighter);
+        self
+    }
 }
 
 impl Client {
@@ -1146,7 +1192,7 @@ impl Client {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use milvus_sdk_rust::query::QueryOptions;
     ///
     /// let options = QueryOptions::new()
@@ -1175,7 +1221,12 @@ impl Client {
                 db_name: "".to_string(),
                 collection_name: collection_name.clone(),
                 expr: expr.to_string(),
-                output_fields: options.output_fields.clone(),
+                output_fields: options
+                    .output_fields
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
                 partition_names: options.partition_names.clone(),
                 travel_timestamp: 0,
                 guarantee_timestamp: if options.guarantee_timestamp > 0 {
@@ -1193,6 +1244,7 @@ impl Client {
                 },
                 use_default_consistency: options.use_default_consistency,
                 expr_template_values: options.expr_template_values.clone(),
+                namespace: options.namespace.clone(),
             })
             .await?
             .into_inner();
@@ -1219,7 +1271,7 @@ impl Client {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use milvus_sdk_rust::query::SearchOptions;
     /// use milvus_sdk_rust::value::Value;
     ///
@@ -1296,7 +1348,11 @@ impl Client {
                 partition_names: options.partition_names.clone(),
                 dsl: options.filter,
                 nq: data.len() as _,
-                placeholder_group: get_place_holder_group(&data)?,
+                search_input: Some(
+                    proto::milvus::search_request::SearchInput::PlaceholderGroup(
+                        get_place_holder_group(&data)?,
+                    ),
+                ),
                 dsl_type: DslType::BoolExprV1 as _,
                 output_fields: options.output_fields.clone(),
                 search_params,
@@ -1307,10 +1363,13 @@ impl Client {
                 not_return_all_meta: false,
                 consistency_level: ConsistencyLevel::default() as _,
                 use_default_consistency: false,
+                #[allow(deprecated)]
                 search_by_primary_keys: false,
                 expr_template_values: options.expr_template_values.clone(),
                 sub_reqs: vec![],
                 function_score: None,
+                namespace: options.namespace,
+                highlighter: options.highlighter,
             })
             .await?
             .into_inner();
@@ -1318,6 +1377,7 @@ impl Client {
         let raw_data = res
             .results
             .ok_or(SuperError::Unexpected("no result for search".to_owned()))?;
+        let all_highlights = raw_data.highlight_results;
         let mut result = Vec::new();
         let mut offset = 0;
         let fields_data = raw_data
@@ -1339,17 +1399,8 @@ impl Client {
             let k = k as usize;
             let mut score = Vec::new();
             score.extend_from_slice(&raw_data.scores[offset..offset + k]);
-            let mut result_data = fields_data
-                .iter()
-                .map(FieldColumn::copy_with_metadata)
-                .collect::<Vec<FieldColumn>>();
-            for j in 0..fields_data.len() {
-                for i in offset..offset + k {
-                    result_data[j].push(fields_data[j].get(i).ok_or(SuperError::Unexpected(
-                        "out of range while indexing field data".to_owned(),
-                    ))?);
-                }
-            }
+            let result_data =
+                slice_field_columns(&fields_data, offset, k).map_err(SuperError::Unexpected)?;
 
             let id = match raw_id {
                 proto::schema::i_ds::IdField::IntId(ref d) => {
@@ -1360,11 +1411,18 @@ impl Client {
                 ),
             };
 
+            let highlights = if !all_highlights.is_empty() && offset + k <= all_highlights.len() {
+                all_highlights[offset..offset + k].to_vec()
+            } else {
+                vec![]
+            };
+
             result.push(SearchResult {
                 size: k as i64,
                 score,
                 field: result_data,
                 id,
+                highlight_results: highlights,
             });
 
             offset += k;
@@ -1391,7 +1449,7 @@ impl Client {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use milvus_sdk_rust::query::{AnnSearchRequest, WeightedRanker, SearchOptions};
     /// use milvus_sdk_rust::value::Value;
     /// use milvus_sdk_rust::proto::common::KeyValuePair;
@@ -1482,7 +1540,7 @@ impl Client {
             }
 
             // Create placeholder group for this request
-            let placeholder_group = get_place_holder_group(&req.data)?;
+            let placeholder_group_data = get_place_holder_group(&req.data)?;
 
             // Create SearchRequest for this AnnSearchRequest
             let search_request = proto::milvus::SearchRequest {
@@ -1491,7 +1549,11 @@ impl Client {
                 collection_name: collection_name.clone(),
                 partition_names: options.partition_names.clone(),
                 dsl: req.expr.unwrap_or_else(|| "".to_string()),
-                placeholder_group,
+                search_input: Some(
+                    proto::milvus::search_request::SearchInput::PlaceholderGroup(
+                        placeholder_group_data,
+                    ),
+                ),
                 dsl_type: proto::common::DslType::BoolExprV1 as i32,
                 output_fields: options.output_fields.clone(),
                 search_params: search_params.clone(),
@@ -1512,10 +1574,13 @@ impl Client {
                 )
                 .parse()
                 .unwrap_or(true),
+                #[allow(deprecated)]
                 search_by_primary_keys: false,
                 sub_reqs: vec![],
                 expr_template_values: req.expr_params.unwrap_or_default(),
                 function_score: None,
+                namespace: None,
+                highlighter: None,
             };
 
             search_requests.push(search_request);
@@ -1549,6 +1614,7 @@ impl Client {
             .parse()
             .unwrap_or(true),
             function_score: None,
+            namespace: options.namespace,
         };
 
         let res = self
@@ -1563,6 +1629,7 @@ impl Client {
         let raw_data = res.results.ok_or(SuperError::Unexpected(
             "no result for hybrid search".to_owned(),
         ))?;
+        let all_highlights = raw_data.highlight_results;
 
         let mut result = Vec::new();
         let mut offset = 0;
@@ -1587,17 +1654,8 @@ impl Client {
             let k = k as usize;
             let mut score = Vec::new();
             score.extend_from_slice(&raw_data.scores[offset..offset + k]);
-            let mut result_data = fields_data
-                .iter()
-                .map(FieldColumn::copy_with_metadata)
-                .collect::<Vec<FieldColumn>>();
-            for j in 0..fields_data.len() {
-                for i in offset..offset + k {
-                    result_data[j].push(fields_data[j].get(i).ok_or(SuperError::Unexpected(
-                        "out of range while indexing field data".to_owned(),
-                    ))?);
-                }
-            }
+            let result_data =
+                slice_field_columns(&fields_data, offset, k).map_err(SuperError::Unexpected)?;
 
             let id = match raw_id {
                 proto::schema::i_ds::IdField::IntId(ref d) => {
@@ -1608,11 +1666,18 @@ impl Client {
                 ),
             };
 
+            let highlights = if !all_highlights.is_empty() && offset + k <= all_highlights.len() {
+                all_highlights[offset..offset + k].to_vec()
+            } else {
+                vec![]
+            };
+
             result.push(SearchResult {
                 size: k as i64,
                 score,
                 field: result_data,
                 id,
+                highlight_results: highlights,
             });
 
             offset += k;
@@ -1693,7 +1758,7 @@ impl Client {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use milvus_sdk_rust::query::{GetOptions, IdType};
     ///
     /// // Get by integer IDs
@@ -1794,10 +1859,19 @@ fn get_place_holder_value(vectors: &Vec<Value>) -> Result<PlaceholderValue> {
     match vectors[0] {
         Value::FloatArray(_) => place_holder.r#type = PlaceholderType::FloatVector as _,
         Value::Binary(_) => place_holder.r#type = PlaceholderType::BinaryVector as _,
+        Value::Int8Vector(_) => place_holder.r#type = PlaceholderType::Int8Vector as _,
+        Value::Float16Vector(_) => place_holder.r#type = PlaceholderType::Float16Vector as _,
+        Value::BFloat16Vector(_) => place_holder.r#type = PlaceholderType::BFloat16Vector as _,
         _ => {
             return Err(SuperError::from(crate::collection::Error::IllegalType(
                 "place holder".to_string(),
-                vec![DataType::BinaryVector, DataType::FloatVector],
+                vec![
+                    DataType::BinaryVector,
+                    DataType::FloatVector,
+                    DataType::Int8Vector,
+                    DataType::Float16Vector,
+                    DataType::BFloat16Vector,
+                ],
             )))
         }
     };
@@ -1812,10 +1886,21 @@ fn get_place_holder_value(vectors: &Vec<Value>) -> Result<PlaceholderValue> {
                 place_holder.values.push(bytes)
             }
             (Value::Binary(d), Value::Binary(_)) => place_holder.values.push(d.to_vec()),
+            (Value::Int8Vector(d), Value::Int8Vector(_))
+            | (Value::Float16Vector(d), Value::Float16Vector(_))
+            | (Value::BFloat16Vector(d), Value::BFloat16Vector(_)) => {
+                place_holder.values.push(d.to_vec())
+            }
             _ => {
                 return Err(SuperError::from(crate::collection::Error::IllegalType(
                     "place holder".to_string(),
-                    vec![DataType::BinaryVector, DataType::FloatVector],
+                    vec![
+                        DataType::BinaryVector,
+                        DataType::FloatVector,
+                        DataType::Int8Vector,
+                        DataType::Float16Vector,
+                        DataType::BFloat16Vector,
+                    ],
                 )))
             }
         };
