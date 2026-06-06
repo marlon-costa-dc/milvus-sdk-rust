@@ -1,0 +1,105 @@
+src/database.rs
+  s_f1e46703a06425::t_f7b327ea60240d 9,50,211,264,278-282,291,317,371,417,454,488
+src/data.rs
+  s_f1e46703a06425::t_f7b327ea60240d 97-100,110-128,132-153,165-166,170-175,177-194,201-215,224-255,261,267-531,547-556,565-567,584-621,630-1178,1229
+src/iterator.rs
+  s_f1e46703a06425::t_f7b327ea60240d 8,70,89,144-148,202,224,267-271,577,736,983,1071-1090,1433-1437,1449,1454-1455,1505-1506,1540
+src/authentication.rs
+  s_f1e46703a06425::t_f7b327ea60240d 22,80,122,155,196,249,292,334,369,416,519,559,599,644,691,736,804,861,916,984,1049
+tests/aggressivehpctesting/phase_1_crud_and_indexing.rs
+  s_8b71eb1f63a67b::t_268cbe1bf39285 14-18,107,149-151,169-171
+tests/testsoutsideoftestsuite/mutate_delete.rs
+  s_f1e46703a06425::t_f7b327ea60240d 30-46
+src/resource_group.rs
+  s_f1e46703a06425::t_f7b327ea60240d 9,51,212,262,301,333,368,413,455
+.github/workflows/main.yml
+  s_f1e46703a06425::t_f7b327ea60240d 24-27,29-30,37,45-47,49-59,61-79
+src/lib.rs
+  s_f1e46703a06425::t_f7b327ea60240d 17,31
+src/proto/mod.rs
+  s_f1e46703a06425::t_f7b327ea60240d 17-23,25-41
+tests/testsoutsideoftestsuite/client_keepalive.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-14
+src/index/mod.rs
+  s_f1e46703a06425::t_f7b327ea60240d 49-64,71,77,178-189,195
+src/utility.rs
+  s_f1e46703a06425::t_e3981b2045cba4 23,84,91,98-139
+  s_f1e46703a06425::t_99835d2aaaa335 59
+  s_f1e46703a06425::t_f7b327ea60240d 1-22,24-58,60-83,85-90,92-97,140-254
+tests/utility.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-109
+src/query.rs
+  s_8b71eb1f63a67b::t_268cbe1bf39285 1224-1229
+codecov.yml
+  s_f1e46703a06425::t_f7b327ea60240d 1-30
+src/index/utils.rs
+  s_f1e46703a06425::t_f7b327ea60240d 9,251-253,256-257,263,266
+tests/rbac.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-133
+examples/milvus26_features.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-496
+tests/database.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-119
+src/client.rs
+  s_f1e46703a06425::t_f7b327ea60240d 26,47-55,109,160,173,180-184,202
+README.md
+  s_f1e46703a06425::t_f7b327ea60240d 40-72,78-85,90-95,97,101-116
+tests/index.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-112
+tests/resource_group.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-84
+tests/testsoutsideoftestsuite/partition_drop_partition.rs
+  s_f1e46703a06425::t_f7b327ea60240d 7-9,11-22
+tests/aggressivehpctesting/phase_3_soak_test.rs
+  s_8b71eb1f63a67b::t_268cbe1bf39285 67,101
+tests/partition.rs
+  s_f1e46703a06425::t_f7b327ea60240d 25-60
+tests/query.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-153
+src/value.rs
+  s_8b71eb1f63a67b::t_268cbe1bf39285 281-283,290,294-301
+tests/iterator.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-96
+.github/mergify.yml
+  s_f1e46703a06425::t_f7b327ea60240d 26,29-37,43,46-49
+tests/testsoutsideoftestsuite/client_search.rs
+  s_f1e46703a06425::t_f7b327ea60240d 50-52,54-55,57,59-62,64-70,72-76
+build.rs
+  s_750dc69364e4e0::t_87f0d3246ac129 39
+tests/milvus26.rs
+  s_f1e46703a06425::t_f7b327ea60240d 1-399
+.gitignore
+  s_f1e46703a06425::t_f7b327ea60240d 12-14,23-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "e96d3df3202999b0d5a1581d3327c7876b9e8d1b",
+  "prompts": {},
+  "sessions": {
+    "s_750dc69364e4e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5c5c372c-9970-4814-a543-84b67c67a046",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    },
+    "s_8b71eb1f63a67b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019e9a51-a958-7913-a420-730183a6b10f",
+        "model": "unknown"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    },
+    "s_f1e46703a06425": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9a51-a958-7913-a420-730183a6b10f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    }
+  }
+}
